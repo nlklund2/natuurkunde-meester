@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natuurkunde Meester - HAVO 3</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', system-ui, sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #F1F5F9; }
+        @keyframes confettiFall { 0% { transform: translateY(-20px) rotate(0deg); opacity:1; } 100% { transform: translateY(100vh) rotate(720deg); opacity:0; } }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+        @keyframes pulseGlow { 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.5)} 50%{box-shadow:0 0 0 12px rgba(34,197,94,0)} }
+        @keyframes scaleIn { 0%{transform:scale(0.8);opacity:0} 100%{transform:scale(1);opacity:1} }
+        @keyframes firePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.3)} }
+        .confetti { position:fixed; width:10px; height:10px; top:-10px; z-index:9999; pointer-events:none; animation: confettiFall 2.5s ease-out forwards; }
+        .shake-anim { animation: shake 0.4s ease-in-out; }
+        .pulse-glow { animation: pulseGlow 2s infinite; }
+        .scale-in { animation: scaleIn 0.3s ease-out; }
+        .fire-pulse { animation: firePulse 0.4s ease-out; }
+        .mic-active { animation: pulseGlow 1s infinite; background: #EF4444 !important; color: white !important; }
+        .formula-box { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border-left: 4px solid #2563EB; padding: 12px 16px; border-radius: 8px; font-family: monospace; font-size: 1.1em; margin: 8px 0; }
+        .progress-fill { transition: width 0.5s ease; }
+        .donut-transition { transition: stroke-dashoffset 0.8s ease; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+    const {useState, useEffect, useRef, useCallback} = React;
+
+    /* ===== DATA ===== */
+    const QUESTIONS = [
+        // MC 6.1
+        {id:1,type:"mc",sec:"6.1",q:"Welke eigenschap geldt NIET voor EM-golven?",opts:["Ze bewegen in alle richtingen","Ze hebben een stof nodig om zich voort te planten","Ze bewegen met de lichtsnelheid","Ze kunnen door vacuüm"],ans:1,expl:"EM-golven hebben géén stof nodig. Ze kunnen ook door vacuüm (lege ruimte) reizen."},
+        {id:2,type:"mc",sec:"6.1",q:"Welke straling heeft de LANGSTE golflengte?",opts:["Gammastraling","Röntgenstraling","Radiogolven","Ultraviolet"],ans:2,expl:"Radiogolven hebben de langste golflengte in het EM-spectrum."},
+        {id:3,type:"mc",sec:"6.1",q:"Wat is de lichtsnelheid?",opts:["3,00 × 10⁶ m/s","3,00 × 10⁸ m/s","3,00 × 10¹⁰ m/s","300 m/s"],ans:1,expl:"De lichtsnelheid c = 3,00 × 10⁸ m/s (300.000 km/s)."},
+        {id:4,type:"mc",sec:"6.1",q:"Welk soort straling zendt je lichaam voortdurend uit?",opts:["UV-straling","Zichtbaar licht","Infrarode straling","Röntgenstraling"],ans:2,expl:"Je lichaam zendt infrarode straling (warmtestraling) uit. Dit kun je zien met een warmtecamera."},
+        {id:5,type:"mc",sec:"6.1",q:"Wat is het gevolg van UV-straling op gekleurd papier?",opts:["Het wordt warmer","De kleuren verbleken","Het wordt natter","Het wordt zwaarder"],ans:1,expl:"UV-straling breekt kleurstoffen af, waardoor kleuren verbleken."},
+        {id:6,type:"mc",sec:"6.1",q:"Wat is de frequentie?",opts:["De afstand tussen twee golftoppen","Het aantal golven per seconde","De snelheid van een golf","De hoogte van een golf"],ans:1,expl:"Frequentie f = het aantal golven per seconde (eenheid: Hertz, Hz)."},
+        // MC 6.2
+        {id:7,type:"mc",sec:"6.2",q:"Hoe noem je een lens die dikker is in het midden?",opts:["Negatieve lens","Holle lens","Positieve lens","Vlakke lens"],ans:2,expl:"Een positieve (bolle) lens is dikker in het midden en bundelt licht."},
+        {id:8,type:"mc",sec:"6.2",q:"Wat gebeurt er met evenwijdige lichtstralen na een positieve lens?",opts:["Ze spreiden uit","Ze komen samen in het brandpunt","Ze buigen niet","Ze reflecteren"],ans:1,expl:"Een positieve lens bundelt evenwijdige lichtstralen in het brandpunt F."},
+        {id:9,type:"mc",sec:"6.2",q:"Een foto is onscherp. Wat is er aan de hand?",opts:["De lens is te groot","De beeldchip staat niet op de juiste afstand","Het licht is te helder","De lens is te dik"],ans:1,expl:"Een onscherp beeld ontstaat als de beeldchip (of film) niet op de juiste afstand van de lens staat."},
+        {id:10,type:"mc",sec:"6.2",q:"Hoe noem je het punt waar lichtstralen samenkomen na de lens?",opts:["Hoofdas","Brandpunt","Beeldpunt","Lichtpunt"],ans:2,expl:"Het beeldpunt B is waar lichtstralen van één punt van het voorwerp samenkomen na de lens."},
+        {id:11,type:"mc",sec:"6.2",q:"Wat bepaalt hoe sterk een lens het licht breekt?",opts:["De kleur van de lens","De brandpuntsafstand","De dikte van het glas","De grootte van het voorwerp"],ans:1,expl:"De brandpuntsafstand f bepaalt de sterkte van een lens. Kortere f = sterkere lens."},
+        // MC 6.3
+        {id:12,type:"mc",sec:"6.3",q:"Wat zijn de drie processen als EM-straling op een voorwerp valt?",opts:["Transmissie, reflectie, absorptie","Breking, reflectie, buiging","Absorptie, emissie, diffusie","Reflectie, breking, verstrooiing"],ans:0,expl:"De drie processen zijn: transmissie (erdoorheen), reflectie (terugkaatsen), absorptie (opnemen)."},
+        {id:13,type:"mc",sec:"6.3",q:"Waarom zijn botten wit op een röntgenfoto?",opts:["Botten zenden licht uit","Botten absorberen veel röntgenstraling","Botten reflecteren röntgenstraling","Botten zijn transparant"],ans:1,expl:"Botten absorberen veel röntgenstraling → er komt minder straling door → wit op de foto."},
+        {id:14,type:"mc",sec:"6.3",q:"Wie ontdekte de röntgenstraling?",opts:["Marie Curie","Albert Einstein","Wilhelm Röntgen","Isaac Newton"],ans:2,expl:"Wilhelm Röntgen ontdekte röntgenstraling in 1895."},
+        {id:15,type:"mc",sec:"6.3",q:"Welk materiaal wordt het meest gebruikt om röntgenstraling af te schermen?",opts:["Aluminium","Glas","Lood","Hout"],ans:2,expl:"Lood (dichtheid 11,3 g/cm³) absorbeert röntgenstraling zeer effectief."},
+        {id:16,type:"mc",sec:"6.3",q:"Wat is de halveringsdikte?",opts:["De halve dikte van een voorwerp","De dikte materiaal waarbij de intensiteit halveert","De dikte van lood","De dikte van botten"],ans:1,expl:"De halveringsdikte is de dikte materiaal waarbij de intensiteit van de straling halveert."},
+        // MC 6.4
+        {id:17,type:"mc",sec:"6.4",q:"Wie ontdekte radioactiviteit?",opts:["Wilhelm Röntgen","Henri Becquerel","Albert Einstein","Niels Bohr"],ans:1,expl:"Henri Becquerel ontdekte radioactiviteit in 1896."},
+        {id:18,type:"mc",sec:"6.4",q:"Welke straling heeft het GROOTSTE doordringend vermogen?",opts:["Alfastraling","Bètastraling","Gammastraling","Infrarood"],ans:2,expl:"Gammastraling heeft het grootste doordringend vermogen: alfa < bèta < gamma."},
+        {id:19,type:"mc",sec:"6.4",q:"Wat is de halveringstijd?",opts:["De tijd waarin alle radioactieve stof verdwijnt","De tijd waarin de helft van de radioactieve stof is omgezet","De halve levensduur van een atoom","De tijd voor één verval"],ans:1,expl:"De halveringstijd is de tijd waarin de helft van de radioactieve stof is vervallen."},
+        {id:20,type:"mc",sec:"6.4",q:"Wat is een tracer?",opts:["Een soort röntgenapparaat","Een radioactieve stof die in het lichaam wordt gebracht voor onderzoek","Een detector","Een beschermend pak"],ans:1,expl:"Een tracer is een radioactieve stof die je inspuit. Een gammacamera maakt er een beeld van."},
+        {id:21,type:"mc",sec:"6.4",q:"Waarom gebruiken ziekenhuizen tracers met een korte halveringstijd?",opts:["Ze zijn goedkoper","De radioactieve stof verdwijnt snel, minder risico","Ze geven meer straling","Ze zijn makkelijker te maken"],ans:1,expl:"Korte halveringstijd → de stof vervalt snel → minder langdurige stralingsbelasting voor de patiënt."},
+        // CALC 6.1
+        {id:22,type:"calc",sec:"6.1",q:"Een radiosignaal legt een afstand af in 0,005 s. Bereken de afstand in km.",correctAns:1500,tol:5,unit:"km",expl:"s = c × t = 3,00 × 10⁸ × 0,005 = 1.500.000 m = 1.500 km"},
+        {id:23,type:"calc",sec:"6.1",q:"Een telefoon gebruikt golven met frequentie 900 MHz. Bereken de golflengte in meter. (1 MHz = 10⁶ Hz)",correctAns:0.33,tol:0.02,unit:"m",expl:"λ = c/f = 3,00 × 10⁸ / (900 × 10⁶) = 0,33 m"},
+        {id:24,type:"calc",sec:"6.1",q:"De golflengte van rood licht is 780 nm. Bereken de frequentie (× 10¹⁴ Hz).",correctAns:3.85,tol:0.05,unit:"× 10¹⁴ Hz",expl:"f = c/λ = 3,00 × 10⁸ / (780 × 10⁻⁹) = 3,85 × 10¹⁴ Hz"},
+        {id:25,type:"calc",sec:"6.1",q:"Licht van de zon doet er 500 seconden over om de aarde te bereiken. Bereken de afstand zon-aarde in miljoen km.",correctAns:150,tol:2,unit:"miljoen km",expl:"s = c × t = 3,00 × 10⁸ × 500 = 1,5 × 10¹¹ m = 150.000.000 km = 150 miljoen km"},
+        {id:26,type:"calc",sec:"6.1",q:"Een wifi-signaal heeft een golflengte van 0,12 m. Bereken de frequentie in GHz.",correctAns:2.5,tol:0.1,unit:"GHz",expl:"f = c/λ = 3,00 × 10⁸ / 0,12 = 2,5 × 10⁹ Hz = 2,5 GHz"},
+        // CALC 6.2
+        {id:27,type:"calc",sec:"6.2",q:"Een lens heeft f = 10 cm. Een voorwerp staat op v = 30 cm. Bereken de beeldafstand b in cm.",correctAns:15,tol:1,unit:"cm",expl:"1/b = 1/f − 1/v = 1/10 − 1/30 = 2/30. b = 15 cm"},
+        {id:28,type:"calc",sec:"6.2",q:"Een lens heeft f = 5 cm. Een voorwerp staat op v = 15 cm. Bereken b in cm.",correctAns:7.5,tol:0.5,unit:"cm",expl:"1/b = 1/5 − 1/15 = 3/15 − 1/15 = 2/15. b = 7,5 cm"},
+        // CALC 6.3
+        {id:29,type:"calc",sec:"6.3",q:"De halveringsdikte van lood is 0,5 cm. Hoeveel % gaat door 1,5 cm lood?",correctAns:12.5,tol:1,unit:"%",expl:"1,5 / 0,5 = 3 halveringsdiktes. (½)³ = ⅛ = 12,5%"},
+        {id:30,type:"calc",sec:"6.3",q:"Na hoeveel halveringsdiktes daalt de intensiteit tot minder dan 5%?",correctAns:5,tol:0,unit:"halveringsdiktes",expl:"(½)⁵ = 1/32 = 3,125% < 5%. Antwoord: 5 halveringsdiktes."},
+        {id:31,type:"calc",sec:"6.3",q:"Röntgenstraling met intensiteit 800 W/m² gaat door 3 halveringsdiktes. Wat is de restintensiteit?",correctAns:100,tol:1,unit:"W/m²",expl:"800 × (½)³ = 800 × 1/8 = 100 W/m²"},
+        // CALC 6.4
+        {id:32,type:"calc",sec:"6.4",q:"Halveringstijd = 6 uur. Hoeveel % is er na 24 uur nog over?",correctAns:6.25,tol:0.5,unit:"%",expl:"24/6 = 4 halveringstijden. (½)⁴ = 1/16 = 6,25%"},
+        {id:33,type:"calc",sec:"6.4",q:"Je hebt 200 gram van een stof met halveringstijd 8 dagen. Hoeveel gram na 24 dagen?",correctAns:25,tol:1,unit:"gram",expl:"24/8 = 3 halveringstijden. 200 × (½)³ = 25 gram"},
+        {id:34,type:"calc",sec:"6.4",q:"Je begint met 1600 Bq. Halveringstijd is 2 uur. Wat is de activiteit na 8 uur?",correctAns:100,tol:1,unit:"Bq",expl:"8/2 = 4 halveringstijden. 1600 × (½)⁴ = 100 Bq"},
+        // TF
+        {id:35,type:"tf",sec:"6.1",q:"Lichtsnelheid in lucht is bijna gelijk aan lichtsnelheid in vacuüm.",ans:true,expl:"Klopt! In lucht is de lichtsnelheid bijna identiek aan die in vacuüm."},
+        {id:36,type:"tf",sec:"6.1",q:"Gammastraling heeft een hogere frequentie dan röntgenstraling.",ans:true,expl:"Klopt! Gammastraling heeft de kortste golflengte en dus de hoogste frequentie."},
+        {id:37,type:"tf",sec:"6.1",q:"EM-golven hebben een stof nodig om zich voort te planten.",ans:false,expl:"Onjuist! EM-golven kunnen zich ook door vacuüm voortplanten."},
+        {id:38,type:"tf",sec:"6.2",q:"Een negatieve lens heeft een echt brandpunt waar lichtstralen samenkomen.",ans:false,expl:"Onjuist! Een negatieve lens spreidt licht. Het brandpunt is virtueel."},
+        {id:39,type:"tf",sec:"6.2",q:"Bij een camera is het beeld omgekeerd (ondersteboven).",ans:true,expl:"Klopt! Net als bij je oog: het beeld op de beeldchip is omgekeerd."},
+        {id:40,type:"tf",sec:"6.3",q:"Röntgenstraling kan door weke delen heen gaan.",ans:true,expl:"Klopt! Röntgenstraling gaat grotendeels door weke delen heen."},
+        {id:41,type:"tf",sec:"6.3",q:"De intensiteit van röntgenstraling neemt toe na passage door materiaal.",ans:false,expl:"Onjuist! De intensiteit neemt juist AF als straling door materiaal gaat (absorptie)."},
+        {id:42,type:"tf",sec:"6.4",q:"Alfastraling kan worden tegengehouden door een vel papier.",ans:true,expl:"Klopt! Alfastraling heeft de kleinste dracht en wordt al gestopt door een vel papier."},
+        {id:43,type:"tf",sec:"6.4",q:"Besmetting is minder gevaarlijk dan bestraling.",ans:false,expl:"Onjuist! Besmetting is juist gevaarlijker: de radioactieve stof zit IN of OP je lichaam en blijft stralen."},
+        // OPEN
+        {id:44,type:"open",sec:"6.1",q:"Noem drie dingen die kunnen gebeuren als EM-straling op een voorwerp valt.",kw:["transmissie","reflectie","absorptie","doorlaten","terugkaatsen","opnemen"],expl:"Transmissie (erdoorheen), reflectie (terugkaatsen) en absorptie (opnemen)."},
+        {id:45,type:"open",sec:"6.2",q:"Beschrijf de twee constructiestralen om een beeld te construeren.",kw:["midden","rechtdoor","evenwijdig","brandpunt","hoofdas"],expl:"1. Straal door midden → gaat rechtdoor. 2. Straal evenwijdig aan hoofdas → gaat door brandpunt."},
+        {id:46,type:"open",sec:"6.3",q:"Waarom moet een laborant achter een loden muur staan bij röntgenfoto's?",kw:["lood","absorbeert","bescherm","straling","schade","kanker","herhaald"],expl:"Lood absorbeert röntgenstraling effectief. Zonder bescherming → kans op DNA-schade en kanker."},
+        {id:47,type:"open",sec:"6.4",q:"Wat is het verschil tussen bestraling en besmetting?",kw:["buitenaf","stopt","bron","weg","in","op","lichaam","blijft","gevaarlijk"],expl:"Bestraling = van buitenaf, stopt als bron weg. Besmetting = stof IN/OP lichaam, blijft stralen → gevaarlijker."},
+        {id:48,type:"open",sec:"6.1",q:"Waarom wordt een zwart T-shirt warmer in de zon dan een wit T-shirt?",kw:["absorb","zwart","meer","warmte","wit","reflec"],expl:"Zwart absorbeert meer straling dan wit. De geabsorbeerde straling wordt omgezet in warmte."},
+        {id:49,type:"open",sec:"6.2",q:"Leg uit wat er gebeurt als je scherpstelt op een voorwerp dichtbij.",kw:["onscherp","achtergrond","afstand","beeld","chip","ver"],expl:"De beeldchip staat op de juiste afstand voor dat voorwerp. De achtergrond is dan onscherp."},
+        {id:50,type:"open",sec:"6.3",q:"Noem drie manieren om je te beschermen tegen röntgenstraling.",kw:["kort","afstand","lood","afscherm","tijd","ver"],expl:"1. Kort blootstellen. 2. Afstand houden. 3. Afscherming met lood."},
+        {id:51,type:"open",sec:"6.4",q:"Waarom worden tracers met korte halveringstijden in ziekenhuizen gebruikt?",kw:["snel","verdwijn","kort","minder","risico","vervalt","straling"],expl:"Korte halveringstijd = stof vervalt snel → minder langdurige stralingsbelasting."},
+        // MATCH
+        {id:52,type:"match",sec:"6.1",q:"Match de straling bij de eigenschap:",pairs:[["Radiogolven","Langste golflengte"],["Zichtbaar licht","Kun je zien met je ogen"],["UV-straling","Veroorzaakt zonnebrand"],["Gammastraling","Kortste golflengte"]],expl:"Het EM-spectrum van lang naar kort: radio → micro → IR → zichtbaar → UV → röntgen → gamma."},
+        {id:53,type:"match",sec:"6.1",q:"Match de formule bij de toepassing:",pairs:[["s = c × t","Afstand berekenen"],["c = f × λ","Verband snelheid en golflengte"],["f = c / λ","Frequentie berekenen"],["λ = c / f","Golflengte berekenen"]],expl:"De basisformules voor EM-golven."},
+        {id:54,type:"match",sec:"6.3",q:"Match het proces bij de beschrijving:",pairs:[["Transmissie","Straling gaat erdoorheen"],["Reflectie","Straling kaatst terug"],["Absorptie","Straling wordt opgenomen"]],expl:"Drie processen bij interactie van EM-straling met materie."},
+        {id:55,type:"match",sec:"6.4",q:"Match de straling bij het afschermmateriaal:",pairs:[["Alfastraling","Vel papier"],["Bètastraling","Paar mm aluminium"],["Gammastraling","Dikke laag lood of beton"]],expl:"Doordringend vermogen: alfa < bèta < gamma."},
+        {id:56,type:"match",sec:"6.2",q:"Match het begrip bij de uitleg:",pairs:[["Brandpunt","Punt waar evenwijdige stralen samenkomen"],["Brandpuntsafstand","Afstand van lens tot brandpunt"],["Beeldpunt","Punt waar stralen van voorwerp samenkomen"],["Hoofdas","Denkbeeldige lijn door midden van lens"]],expl:"Kernbegrippen bij lenzen."},
+        {id:57,type:"match",sec:"6.4",q:"Match het begrip bij de beschrijving:",pairs:[["Halveringstijd","Tijd waarin helft radioactieve stof vervalt"],["Bestraling","Straling van buitenaf, stopt als bron weg"],["Besmetting","Radioactieve stof in/op het lichaam"],["Tracer","Radioactieve stof voor medisch onderzoek"]],expl:"Kernbegrippen bij radioactiviteit."}
+    ];
+
+    const THEORY = {
+        "6.1": {title:"Elektromagnetische straling",icon:"📡",color:"#2563EB",topics:[
+            {name:"Zenden en ontvangen",text:"Je telefoon zendt elektromagnetische (EM) golven uit via een antenne naar een zendmast. In de antenne bewegen elektronen razendsnel heen en weer → dit veroorzaakt EM-golven die zich met de lichtsnelheid voortbewegen."},
+            {name:"Eigenschappen van EM-golven",text:"• EM-golven bewegen in alle richtingen (niet in één vlak)\n• Ze hebben géén stof nodig → ze gaan ook door vacuüm (de ruimte)\n• Ze bewegen altijd met de lichtsnelheid: c = 3,00 × 10⁸ m/s"},
+            {name:"Formule: afstand berekenen",text:"s = c × t\n\ns = afstand (m)\nc = lichtsnelheid = 3,00 × 10⁸ m/s\nt = tijd (s)",formula:true},
+            {name:"Golflengte en frequentie",text:"Golflengte λ (lambda) = afstand tussen twee toppen.\nFrequentie f = aantal golven per seconde (eenheid: Hz).\n\nHoe hoger de frequentie → hoe korter de golflengte."},
+            {name:"Formule: snelheid, frequentie en golflengte",text:"c = f × λ\n\nc = lichtsnelheid (3,00 × 10⁸ m/s)\nf = frequentie (Hz)\nλ = golflengte (m)\n\nOok: f = c / λ  en  λ = c / f",formula:true},
+            {name:"Het EM-spectrum",text:"Van LANG naar KORT golflengte:\nRadiogolven → Microgolven → Infrarood → Zichtbaar licht (780nm rood → 380nm violet) → UV → Röntgen → Gamma\n\nAlle soorten zijn EM-straling, alleen de golflengte verschilt!"},
+            {name:"Effecten van straling",text:"Absorptie → warmte (zwart T-shirt warmer in de zon dan wit).\nUV-straling breekt kleurstoffen af (verbleken) en kan DNA beschadigen (zonnebrand, huidkanker)."}
+        ]},
+        "6.2": {title:"Licht en lenzen",icon:"🔍",color:"#16A34A",topics:[
+            {name:"Lichtbreking bij een lens",text:"Als licht van lucht naar glas gaat, verandert het van richting (lichtbreking). Een lens gebruikt dit om stralen te bundelen of te spreiden."},
+            {name:"Positieve lens (bolle lens)",text:"Dikker in het midden, dunner aan de rand.\nBundelt evenwijdige lichtstralen → ze komen samen in het brandpunt F.\nBrandpuntsafstand f = afstand van lens tot brandpunt."},
+            {name:"Negatieve lens (holle lens)",text:"Dunner in het midden, dikker aan de rand.\nSpreidt lichtstralen → het LIJKT alsof ze uit het brandpunt komen (virtueel brandpunt)."},
+            {name:"Beelden maken met een lens",text:"Lichtstralen van een voorwerp gaan door de lens en komen samen in een beeldpunt B.\nAlle beeldpunten samen = het beeld.\n\nBeeldchip op juiste afstand → scherp beeld.\nVerkeerde afstand → onscherp (lichtcirkeltjes)."},
+            {name:"Constructiestralen (2 stuks!)",text:"1. Straal door het MIDDEN van de lens → gaat RECHTDOOR\n2. Straal EVENWIJDIG aan de hoofdas → gaat door het BRANDPUNT F\n\nWaar ze samenkomen = beeldpunt.\nHet beeld is omgekeerd (ondersteboven)!"},
+            {name:"Voorwerpsafstand en beeldafstand",text:"v = voorwerpsafstand (voorwerp tot lens)\nb = beeldafstand (lens tot beeld)\nf = brandpuntsafstand\n\nDichter bij lens → beeld verder weg. Verder weg → beeld dichter bij F."},
+            {name:"Lenzenformule (PLUS)",text:"1/f = 1/v + 1/b\n\nVoorbeeld: f = 10 cm, v = 30 cm\n1/b = 1/10 − 1/30 = 3/30 − 1/30 = 2/30\nb = 15 cm",formula:true}
+        ]},
+        "6.3": {title:"Röntgenstraling",icon:"☢️",color:"#EA580C",topics:[
+            {name:"Transmissie, reflectie en absorptie",text:"Als EM-straling op een voorwerp valt:\n• Transmissie: straling gaat erdoorheen\n• Reflectie: straling kaatst terug\n• Absorptie: straling wordt opgenomen (→ warmte)\n\nMeestal gebeuren alle drie tegelijk!"},
+            {name:"Röntgenfoto's maken",text:"Röntgenstraling gaat door weke delen maar wordt geabsorbeerd door botten.\n\nRöntgenbron ←→ detectorscherm, patiënt ertussen.\nBotten = wit (absorptie), weke delen = donker (transmissie)."},
+            {name:"Negatief beeld",text:"Röntgenfoto's worden als negatief weergegeven. Botten (hoge absorptie) verschijnen wit, weke delen (hoge transmissie) donker."},
+            {name:"Gevaren van röntgenstraling",text:"Ontdekt door Wilhelm Röntgen (1895).\nRöntgenstraling is ioniserend → kan DNA beschadigen.\nHerhaalde blootstelling → huidschade en kanker.\n\nVergelijking: één borstfoto ≈ vliegreis Schiphol–New York."},
+            {name:"Bescherming",text:"• Zo KORT mogelijk blootstellen\n• Zo veel mogelijk AFSTAND houden\n• AFSCHERMING met lood (ρ = 11,3 g/cm³)\n\nLaboranten staan achter een loden muur."},
+            {name:"Halveringsdikte",text:"Halveringsdikte = dikte materiaal waarbij intensiteit halveert.\n\nNa 1 halveringsdikte: ½ (50%)\nNa 2: ¼ (25%)\nNa 3: ⅛ (12,5%)\nNa n: (½)ⁿ",formula:true}
+        ]},
+        "6.4": {title:"Gammastraling",icon:"⚛️",color:"#7C3AED",topics:[
+            {name:"Radioactiviteit",text:"Ontdekt door Henri Becquerel (1852–1908).\nRadioactieve stoffen zenden vanzelf ioniserende straling uit.\n\nRadioactiviteit is overal: bodem, water, lucht, je lichaam (natuurlijk).\nSinds 1896 ook kunstmatig radioactieve stoffen."},
+            {name:"Halveringstijd",text:"Halveringstijd = tijd waarin helft van de radioactieve stof vervalt.\n\nNa 1 halveringstijd: ½\nNa 2: ¼\nNa 3: ⅛\nNa n: (½)ⁿ\n\nElke stof heeft zijn eigen halveringstijd (fracties seconde tot miljarden jaren).",formula:true},
+            {name:"Drie soorten straling",text:"• Alfa (α): deeltjes, kleine dracht → vel papier stopt het\n• Bèta (β): deeltjes → paar mm aluminium stopt het\n• Gamma (γ): EM-golven → dikke laag lood/beton nodig\n\nDoordringend vermogen: alfa < bèta < gamma"},
+            {name:"Onderzoek met gammastraling",text:"Tracer = radioactieve stof in het lichaam gebracht.\nZendt gammastraling uit → gammacamera registreert → beeld van orgaan.\n\nZiekenhuizen gebruiken tracers met KORTE halveringstijd → stof verdwijnt snel."},
+            {name:"Bestraling vs besmetting",text:"Bestraling = straling van BUITENAF. Stopt zodra bron weg is.\n\nBesmetting = radioactieve stof IN of OP je lichaam. Blijft stralen → veel gevaarlijker!\n\nVeiligheidsregels: niet eten/drinken bij bronnen, handen wassen, beschermend pak."}
+        ]}
+    };
+
+    const LEVELS = [
+        {min:0,name:"Beginner",emoji:"🌱"},{min:100,name:"Leerling",emoji:"📚"},{min:300,name:"Student",emoji:"🎓"},
+        {min:600,name:"Kenner",emoji:"🧠"},{min:1000,name:"Expert",emoji:"💡"},{min:1500,name:"Meester",emoji:"👨‍🏫"},
+        {min:2200,name:"Professor",emoji:"🎯"},{min:3000,name:"Genie",emoji:"🧬"},{min:4000,name:"Legende",emoji:"⭐"},
+        {min:5000,name:"Straling Specialist",emoji:"🏆"}
+    ];
+
+    function getLevel(xp) {
+        let cur = LEVELS[0];
+        for (const l of LEVELS) { if (xp >= l.min) cur = l; else break; }
+        return cur;
+    }
+
+    function fireConfetti() {
+        const colors = ["#2563EB","#F97316","#22C55E","#EAB308","#EF4444","#EC4899"];
+        for (let i = 0; i < 25; i++) {
+            const el = document.createElement("div");
+            el.className = "confetti";
+            el.style.left = Math.random()*100+"%";
+            el.style.width = (6+Math.random()*8)+"px";
+            el.style.height = (6+Math.random()*8)+"px";
+            el.style.borderRadius = Math.random()>0.5?"50%":"0";
+            el.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+            el.style.animationDelay = Math.random()*0.8+"s";
+            el.style.animationDuration = (2+Math.random()*1.5)+"s";
+            document.body.appendChild(el);
+            setTimeout(()=>el.remove(), 4000);
+        }
+    }
+
+    /* ===== COMPONENTS ===== */
+
+    function DonutChart({pct}) {
+        const r = 60, C = 2*Math.PI*r, off = C - (pct/100)*C;
+        const color = pct>=90?"#22C55E":pct>=70?"#EAB308":pct>=50?"#F97316":"#EF4444";
+        return (
+            <div style={{textAlign:"center"}}>
+                <svg width="160" height="160" viewBox="0 0 160 160">
+                    <circle cx="80" cy="80" r={r} fill="none" stroke="#E2E8F0" strokeWidth="14"/>
+                    <circle cx="80" cy="80" r={r} fill="none" stroke={color} strokeWidth="14"
+                        strokeDasharray={C} strokeDashoffset={off} strokeLinecap="round"
+                        className="donut-transition" transform="rotate(-90 80 80)"/>
+                    <text x="80" y="75" textAnchor="middle" fontSize="28" fontWeight="800" fill="#1E293B">{Math.round(pct)}%</text>
+                    <text x="80" y="95" textAnchor="middle" fontSize="11" fill="#64748B">beheersing</text>
+                </svg>
+            </div>
+        );
+    }
+
+    function ProgressBar({pct, color}) {
+        const bg = pct>=90?"#22C55E":pct>=70?"#EAB308":pct>=50?"#F97316":"#EF4444";
+        return (
+            <div style={{height:10,background:"#E2E8F0",borderRadius:5,overflow:"hidden"}}>
+                <div className="progress-fill" style={{height:"100%",width:pct+"%",background:color||bg,borderRadius:5}}/>
+            </div>
+        );
+    }
+
+    function MicButton({onText}) {
+        const [on, setOn] = useState(false);
+        const [supported] = useState(()=>!!(window.SpeechRecognition||window.webkitSpeechRecognition));
+        const recRef = useRef(null);
+
+        const toggle = useCallback(()=>{
+            if (!supported) { alert("Spraak niet ondersteund in deze browser."); return; }
+            if (on) { if(recRef.current) recRef.current.stop(); setOn(false); return; }
+            const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+            const rec = new SR();
+            rec.lang = "nl-NL";
+            rec.interimResults = false;
+            rec.onresult = (e) => { const t = e.results[0][0].transcript; onText(t); };
+            rec.onend = () => setOn(false);
+            rec.onerror = () => setOn(false);
+            recRef.current = rec;
+            rec.start();
+            setOn(true);
+        },[supported, on, onText]);
+
+        if (!supported) return null;
+        return (
+            <button onClick={toggle} className={on?"mic-active":""} style={{padding:"8px 16px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:700,fontSize:14,background:on?"#EF4444":"#E2E8F0",color:on?"white":"#334155"}}>
+                🎤 {on ? "Luistert..." : "Inspreken"}
+            </button>
+        );
+    }
+
+    /* ===== QUESTION CARD ===== */
+    function QuestionCard({question, onResult, showNext, onNext}) {
+        const [userAns, setUserAns] = useState("");
+        const [selMC, setSelMC] = useState(null);
+        const [selTF, setSelTF] = useState(null);
+        const [matchSel, setMatchSel] = useState({});
+        const [submitted, setSubmitted] = useState(false);
+        const [correct, setCorrect] = useState(null);
+
+        const submit = (isCorrect) => {
+            setCorrect(isCorrect);
+            setSubmitted(true);
+            onResult(isCorrect);
+            if (isCorrect) fireConfetti();
+        };
+
+        const checkCalc = () => {
+            const v = parseFloat(userAns.replace(",","."));
+            if (isNaN(v)) return;
+            submit(Math.abs(v - question.correctAns) <= question.tol);
+        };
+
+        const checkOpen = () => {
+            const kws = question.kw || [];
+            const low = userAns.toLowerCase();
+            const hits = kws.filter(k=>low.includes(k.toLowerCase())).length;
+            submit(hits >= Math.ceil(kws.length * 0.4));
+        };
+
+        const checkMatch = (idx, val) => {
+            const nm = {...matchSel, [idx]: val};
+            setMatchSel(nm);
+            if (Object.keys(nm).length === question.pairs.length) {
+                const ok = question.pairs.every((p,i)=>nm[i]===p[1]);
+                submit(ok);
+            }
+        };
+
+        const cardBorder = submitted ? (correct ? "3px solid #22C55E" : "3px solid #EF4444") : "3px solid transparent";
+        const cardClass = submitted ? (correct ? "scale-in" : "shake-anim") : "";
+
+        return (
+            <div>
+                <div className={cardClass} style={{background:"white",borderRadius:16,padding:32,boxShadow:"0 4px 24px rgba(0,0,0,0.08)",border:cardBorder,marginBottom:16}}>
+                    <p style={{fontSize:20,fontWeight:700,color:"#1E293B",marginBottom:24,lineHeight:1.5}}>{question.q}</p>
+
+                    {question.type==="mc" && (
+                        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                            {question.opts.map((o,i)=>{
+                                let bg = "#F1F5F9", col = "#1E293B", brd = "2px solid #E2E8F0";
+                                if (submitted && i===question.ans) { bg="#DCFCE7"; brd="2px solid #22C55E"; col="#166534"; }
+                                else if (submitted && i===selMC && i!==question.ans) { bg="#FEE2E2"; brd="2px solid #EF4444"; col="#991B1B"; }
+                                else if (!submitted && i===selMC) { bg="#DBEAFE"; brd="2px solid #2563EB"; col="#1E40AF"; }
+                                return <button key={i} disabled={submitted} onClick={()=>{setSelMC(i);submit(i===question.ans);}}
+                                    style={{padding:"14px 18px",borderRadius:10,border:brd,background:bg,color:col,fontWeight:600,fontSize:15,cursor:submitted?"default":"pointer",textAlign:"left"}}>{o}</button>
+                            })}
+                        </div>
+                    )}
+
+                    {question.type==="calc" && (
+                        <div>
+                            <div style={{display:"flex",gap:8,marginBottom:12}}>
+                                {question.unit && <span style={{padding:"10px 14px",background:"#F1F5F9",borderRadius:8,fontWeight:700}}>{question.unit}</span>}
+                                <input type="text" inputMode="decimal" value={userAns} onChange={e=>setUserAns(e.target.value)} disabled={submitted}
+                                    placeholder="Voer je antwoord in..." onKeyDown={e=>{if(e.key==="Enter"&&userAns)checkCalc();}}
+                                    style={{flex:1,padding:"10px 14px",border:"2px solid #CBD5E1",borderRadius:8,fontSize:16,outline:"none"}}/>
+                            </div>
+                            {!submitted && <button onClick={checkCalc} disabled={!userAns}
+                                style={{width:"100%",padding:"12px",borderRadius:10,border:"none",background:userAns?"#2563EB":"#94A3B8",color:"white",fontWeight:700,fontSize:16,cursor:userAns?"pointer":"default"}}>Controleer</button>}
+                        </div>
+                    )}
+
+                    {question.type==="tf" && (
+                        <div style={{display:"flex",gap:12}}>
+                            {[true,false].map(val=>{
+                                let bg = val?"#DCFCE7":"#FEE2E2", col = val?"#166534":"#991B1B";
+                                if (submitted && val===question.ans) { bg="#22C55E"; col="white"; }
+                                else if (submitted && val===selTF && val!==question.ans) { bg="#EF4444"; col="white"; }
+                                else if (!submitted) { bg=val?"#F0FDF4":"#FEF2F2"; col=val?"#166534":"#991B1B"; }
+                                return <button key={String(val)} disabled={submitted} onClick={()=>{setSelTF(val);submit(val===question.ans);}}
+                                    style={{flex:1,padding:"16px",borderRadius:12,border:"none",background:bg,color:col,fontWeight:800,fontSize:18,cursor:submitted?"default":"pointer"}}>
+                                    {val?"✓ Waar":"✗ Niet waar"}</button>
+                            })}
+                        </div>
+                    )}
+
+                    {question.type==="open" && (
+                        <div>
+                            <textarea value={userAns} onChange={e=>setUserAns(e.target.value)} disabled={submitted}
+                                placeholder="Typ je antwoord of spreek in..."
+                                style={{width:"100%",padding:14,border:"2px solid #CBD5E1",borderRadius:10,fontSize:15,minHeight:100,resize:"vertical",outline:"none",marginBottom:8}}/>
+                            <div style={{display:"flex",gap:8}}>
+                                {!submitted && <button onClick={checkOpen} disabled={!userAns}
+                                    style={{flex:1,padding:12,borderRadius:10,border:"none",background:userAns?"#2563EB":"#94A3B8",color:"white",fontWeight:700,fontSize:15,cursor:userAns?"pointer":"default"}}>Controleer</button>}
+                                {!submitted && <MicButton onText={t=>setUserAns(prev=>prev?prev+" "+t:t)}/>}
+                            </div>
+                        </div>
+                    )}
+
+                    {question.type==="match" && (
+                        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                            {question.pairs.map((p,i)=>{
+                                const shuffled = [...question.pairs].map(x=>x[1]).sort();
+                                return (
+                                    <div key={i} style={{display:"flex",gap:8,alignItems:"center"}}>
+                                        <div style={{flex:1,padding:"10px 14px",background:"#EFF6FF",borderRadius:8,fontWeight:600,border:"2px solid #BFDBFE"}}>{p[0]}</div>
+                                        <span style={{fontSize:20}}>→</span>
+                                        <select value={matchSel[i]||""} onChange={e=>checkMatch(i,e.target.value)} disabled={submitted}
+                                            style={{flex:1,padding:"10px 14px",border:"2px solid #CBD5E1",borderRadius:8,fontSize:14,fontWeight:600}}>
+                                            <option value="">Kies...</option>
+                                            {shuffled.map((s,j)=><option key={j} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {submitted && (
+                    <div style={{background:correct?"#F0FDF4":"#FFF7ED",border:correct?"2px solid #86EFAC":"2px solid #FDBA74",borderRadius:12,padding:20,marginBottom:16}}>
+                        <p style={{fontWeight:800,fontSize:16,color:correct?"#166534":"#9A3412",marginBottom:6}}>{correct?"✅ Goed!":"❌ Helaas, niet correct"}</p>
+                        <p style={{color:"#334155",lineHeight:1.6}}>{question.expl}</p>
+                    </div>
+                )}
+
+                {submitted && showNext && (
+                    <button onClick={onNext} style={{width:"100%",padding:14,borderRadius:12,border:"none",background:"linear-gradient(135deg,#2563EB,#7C3AED)",color:"white",fontWeight:700,fontSize:16,cursor:"pointer"}}>
+                        Volgende vraag →
+                    </button>
+                )}
+            </div>
+        );
+    }
+
+    /* ===== MAIN APP ===== */
+    function App() {
+        const [name, setName] = useState("");
+        const [started, setStarted] = useState(false);
+        const [view, setView] = useState("dashboard");
+        const [practiceSec, setPracticeSec] = useState(null);
+        const [practiceQs, setPracticeQs] = useState([]);
+        const [pIdx, setPIdx] = useState(0);
+        const [waitingNext, setWaitingNext] = useState(false);
+        const [xp, setXp] = useState(0);
+        const [streak, setStreak] = useState(0);
+        const [stats, setStats] = useState({"6.1":{a:0,c:0},"6.2":{a:0,c:0},"6.3":{a:0,c:0},"6.4":{a:0,c:0}});
+        // Test mode
+        const [testQs, setTestQs] = useState([]);
+        const [tIdx, setTIdx] = useState(0);
+        const [tWaiting, setTWaiting] = useState(false);
+        const [tScore, setTScore] = useState(0);
+        const [tDone, setTDone] = useState(false);
+        const [tTime, setTTime] = useState(1800);
+
+        useEffect(()=>{
+            if (view!=="test"||tDone) return;
+            const iv = setInterval(()=>setTTime(p=>{if(p<=1){setTDone(true);return 0;}return p-1;}),1000);
+            return ()=>clearInterval(iv);
+        },[view,tDone]);
+
+        const totalA = Object.values(stats).reduce((s,v)=>s+v.a,0);
+        const totalC = Object.values(stats).reduce((s,v)=>s+v.c,0);
+        const overallPct = totalA>0?Math.round(totalC/totalA*100):0;
+
+        const secPct = (sec) => { const s=stats[sec]; return s.a>0?Math.round(s.c/s.a*100):0; };
+        const allReady = ["6.1","6.2","6.3","6.4"].every(s=>stats[s].a>0 && secPct(s)>=90);
+
+        const startPractice = (sec) => {
+            const qs = QUESTIONS.filter(q=>q.sec===sec).sort(()=>Math.random()-0.5);
+            setPracticeQs(qs);
+            setPIdx(0);
+            setPracticeSec(sec);
+            setWaitingNext(false);
+            setView("practice");
+        };
+
+        const startTest = () => {
+            const qs = [...QUESTIONS].sort(()=>Math.random()-0.5).slice(0,20);
+            setTestQs(qs);
+            setTIdx(0);
+            setTScore(0);
+            setTDone(false);
+            setTTime(1800);
+            setTWaiting(false);
+            setView("test");
+        };
+
+        const handlePracticeResult = (correct) => {
+            const q = practiceQs[pIdx];
+            const mult = streak>=10?3:streak>=5?2:streak>=3?1.5:1;
+            setXp(p=>p+Math.round((correct?10:5)*mult));
+            setStreak(p=>correct?p+1:0);
+            setStats(p=>({...p,[q.sec]:{a:p[q.sec].a+1,c:p[q.sec].c+(correct?1:0)}}));
+            setWaitingNext(true);
+        };
+
+        const nextPracticeQ = () => {
+            if (pIdx < practiceQs.length-1) {
+                setPIdx(p=>p+1);
+                setWaitingNext(false);
+            } else {
+                setView("dashboard");
+            }
+        };
+
+        const handleTestResult = (correct) => {
+            if (correct) setTScore(p=>p+1);
+            setTWaiting(true);
+        };
+
+        const nextTestQ = () => {
+            if (tIdx < testQs.length-1) {
+                setTIdx(p=>p+1);
+                setTWaiting(false);
+            } else {
+                setTDone(true);
+            }
+        };
+
+        const level = getLevel(xp);
+
+        /* ===== WELCOME ===== */
+        if (!started) {
+            return (
+                <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#667EEA,#764BA2)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+                    <div style={{background:"white",borderRadius:24,padding:48,maxWidth:420,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.15)"}}>
+                        <div style={{fontSize:64,marginBottom:16}}>⚡</div>
+                        <h1 style={{fontSize:32,fontWeight:800,color:"#1E293B",marginBottom:4}}>Natuurkunde Meester</h1>
+                        <p style={{color:"#64748B",marginBottom:32,fontSize:16}}>HAVO 3 — Hoofdstuk 6: Straling</p>
+                        <input type="text" placeholder="Jouw naam..." value={name} onChange={e=>setName(e.target.value)}
+                            onKeyDown={e=>{if(e.key==="Enter"&&name.trim())setStarted(true);}}
+                            style={{width:"100%",padding:"14px 18px",border:"2px solid #CBD5E1",borderRadius:12,fontSize:16,fontWeight:600,marginBottom:16,outline:"none"}}/>
+                        <button onClick={()=>{if(name.trim())setStarted(true);}}
+                            style={{width:"100%",padding:"16px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#2563EB,#7C3AED)",color:"white",fontSize:18,fontWeight:800,cursor:"pointer"}}>
+                            Start! 🚀
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        /* ===== HEADER ===== */
+        const Header = () => (
+            <div style={{background:"linear-gradient(135deg,#1E293B,#334155)",color:"white",padding:"16px 24px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                    <span style={{fontSize:20,fontWeight:800}}>⚡ Natuurkunde Meester</span>
+                    <span style={{marginLeft:12,opacity:0.7,fontSize:14}}>Hoi {name}!</span>
+                </div>
+                <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                    <div className={streak>=3?"fire-pulse":""} style={{background:"rgba(255,255,255,0.15)",padding:"6px 14px",borderRadius:20,fontWeight:700}}>
+                        🔥 {streak} {streak>=3 && <span style={{fontSize:11,opacity:0.8}}>×{streak>=10?3:streak>=5?2:1.5}</span>}
+                    </div>
+                    <div style={{background:"rgba(255,255,255,0.15)",padding:"6px 14px",borderRadius:20,fontWeight:700}}>⭐ {xp} XP</div>
+                    <div style={{background:"rgba(255,255,255,0.15)",padding:"6px 14px",borderRadius:20,fontWeight:700}}>{level.emoji} {level.name}</div>
+                </div>
+            </div>
+        );
+
+        /* ===== THEORY VIEW ===== */
+        if (view==="theory") {
+            return (
+                <div style={{minHeight:"100vh",background:"#F1F5F9"}}>
+                    <Header/>
+                    <div style={{maxWidth:800,margin:"0 auto",padding:24}}>
+                        <button onClick={()=>setView("dashboard")} style={{marginBottom:20,padding:"10px 20px",borderRadius:8,border:"none",background:"#475569",color:"white",fontWeight:700,cursor:"pointer"}}>← Dashboard</button>
+                        <h1 style={{fontSize:28,fontWeight:800,marginBottom:24,color:"#1E293B"}}>📖 Theorie: Straling</h1>
+                        {Object.entries(THEORY).map(([id,sec])=>(
+                            <div key={id} style={{marginBottom:24,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+                                <div style={{background:sec.color,padding:"16px 24px",color:"white",fontWeight:800,fontSize:20}}>
+                                    {sec.icon} §{id} {sec.title}
+                                </div>
+                                <div style={{padding:20}}>
+                                    {sec.topics.map((t,i)=>(
+                                        <details key={i} style={{marginBottom:8}}>
+                                            <summary style={{cursor:"pointer",padding:"10px 0",fontWeight:700,fontSize:16,color:"#1E293B",borderBottom:"1px solid #F1F5F9"}}>{t.name}</summary>
+                                            <div className={t.formula?"formula-box":""} style={{padding:"12px 0",color:"#475569",whiteSpace:"pre-line",lineHeight:1.7,fontSize:15}}>
+                                                {t.text}
+                                            </div>
+                                        </details>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        /* ===== PRACTICE VIEW ===== */
+        if (view==="practice" && practiceQs.length>0) {
+            const q = practiceQs[pIdx];
+            const isLast = pIdx >= practiceQs.length-1;
+            return (
+                <div style={{minHeight:"100vh",background:"#F1F5F9"}}>
+                    <Header/>
+                    <div style={{maxWidth:680,margin:"0 auto",padding:24}}>
+                        <button onClick={()=>setView("dashboard")} style={{marginBottom:16,padding:"8px 16px",borderRadius:8,border:"none",background:"#475569",color:"white",fontWeight:600,cursor:"pointer",fontSize:13}}>← Dashboard</button>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                            <span style={{fontWeight:700,color:"#64748B"}}>Vraag {pIdx+1} van {practiceQs.length}</span>
+                            <span style={{fontWeight:700,color:"#64748B"}}>§{practiceSec}</span>
+                        </div>
+                        <ProgressBar pct={(pIdx+1)/practiceQs.length*100} color="#2563EB"/>
+                        <div style={{marginTop:20}}>
+                            <QuestionCard key={q.id} question={q} onResult={handlePracticeResult}
+                                showNext={waitingNext} onNext={nextPracticeQ}/>
+                        </div>
+                        {waitingNext && isLast && (
+                            <button onClick={()=>setView("dashboard")} style={{width:"100%",marginTop:12,padding:14,borderRadius:12,border:"none",background:"#22C55E",color:"white",fontWeight:700,fontSize:16,cursor:"pointer"}}>
+                                ✅ Klaar! Terug naar Dashboard
+                            </button>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        /* ===== TEST VIEW ===== */
+        if (view==="test") {
+            if (tDone) {
+                const pct = Math.round(tScore/testQs.length*100);
+                const grade = (pct/100*9+1).toFixed(1);
+                const passed = pct>=90;
+                if (passed) fireConfetti();
+                return (
+                    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#667EEA,#764BA2)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+                        <div className="scale-in" style={{background:"white",borderRadius:24,padding:48,maxWidth:420,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.15)"}}>
+                            <div style={{fontSize:64,marginBottom:16}}>{passed?"🎉":"📚"}</div>
+                            <h2 style={{fontSize:28,fontWeight:800,marginBottom:8}}>{passed?"Gefeliciteerd! TOETS KLAAR!":"Nog even oefenen!"}</h2>
+                            <div style={{fontSize:56,fontWeight:800,color:passed?"#22C55E":"#F97316",marginBottom:8}}>{grade}</div>
+                            <p style={{color:"#64748B",fontSize:16,marginBottom:24}}>{tScore} van {testQs.length} correct ({pct}%)</p>
+                            <button onClick={()=>setView("dashboard")} style={{width:"100%",padding:14,borderRadius:12,border:"none",background:"#2563EB",color:"white",fontWeight:700,fontSize:16,cursor:"pointer"}}>Terug naar Dashboard</button>
+                        </div>
+                    </div>
+                );
+            }
+            const q = testQs[tIdx];
+            const mm = Math.floor(tTime/60), ss = tTime%60;
+            return (
+                <div style={{minHeight:"100vh",background:"#F1F5F9"}}>
+                    <Header/>
+                    <div style={{maxWidth:680,margin:"0 auto",padding:24}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                            <span style={{fontWeight:700,color:"#64748B"}}>Eindtoets: vraag {tIdx+1}/{testQs.length}</span>
+                            <span style={{fontWeight:800,fontSize:20,color:tTime<300?"#EF4444":"#1E293B",padding:"6px 14px",background:tTime<300?"#FEE2E2":"#F1F5F9",borderRadius:8}}>
+                                ⏱ {mm}:{String(ss).padStart(2,"0")}
+                            </span>
+                        </div>
+                        <ProgressBar pct={(tIdx+1)/testQs.length*100} color="#F97316"/>
+                        <div style={{marginTop:20}}>
+                            <QuestionCard key={q.id} question={q} onResult={handleTestResult}
+                                showNext={tWaiting} onNext={nextTestQ}/>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        /* ===== DASHBOARD ===== */
+        const sections = [
+            {id:"6.1",name:"EM Straling",icon:"📡",grad:"linear-gradient(135deg,#3B82F6,#2563EB)"},
+            {id:"6.2",name:"Licht & Lenzen",icon:"🔍",grad:"linear-gradient(135deg,#22C55E,#16A34A)"},
+            {id:"6.3",name:"Röntgenstraling",icon:"☢️",grad:"linear-gradient(135deg,#F97316,#EA580C)"},
+            {id:"6.4",name:"Gammastraling",icon:"⚛️",grad:"linear-gradient(135deg,#8B5CF6,#7C3AED)"}
+        ];
+
+        return (
+            <div style={{minHeight:"100vh",background:"#F1F5F9"}}>
+                <Header/>
+                <div style={{maxWidth:900,margin:"0 auto",padding:24}}>
+                    {/* Donut + stats */}
+                    <div style={{background:"white",borderRadius:20,padding:32,marginBottom:24,boxShadow:"0 4px 24px rgba(0,0,0,0.06)",textAlign:"center"}}>
+                        <DonutChart pct={overallPct}/>
+                        <p style={{color:"#64748B",marginTop:8,fontSize:14}}>{totalC} van {totalA} vragen correct beantwoord</p>
+                        {allReady && (
+                            <div className="pulse-glow" style={{display:"inline-block",marginTop:16,padding:"12px 24px",background:"#22C55E",color:"white",borderRadius:12,fontWeight:800,fontSize:18}}>
+                                🏆 TOETS KLAAR! Alle secties ≥ 90%
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{display:"flex",gap:12,marginBottom:24}}>
+                        <button onClick={()=>setView("theory")} style={{flex:1,padding:16,borderRadius:12,border:"none",background:"#2563EB",color:"white",fontWeight:700,fontSize:16,cursor:"pointer"}}>
+                            📖 Theorie Bekijken
+                        </button>
+                        <button onClick={startTest} disabled={!allReady}
+                            style={{flex:1,padding:16,borderRadius:12,border:"none",background:allReady?"#F97316":"#CBD5E1",color:"white",fontWeight:700,fontSize:16,cursor:allReady?"pointer":"default",opacity:allReady?1:0.6}}>
+                            🎯 Eindtoets {!allReady && "(≥90% nodig)"}
+                        </button>
+                    </div>
+
+                    {/* Section cards */}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(250px,1fr))",gap:16}}>
+                        {sections.map(sec=>{
+                            const pct = secPct(sec.id);
+                            const s = stats[sec.id];
+                            return (
+                                <div key={sec.id} style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+                                    <div style={{background:sec.grad,padding:"20px 24px",color:"white"}}>
+                                        <span style={{fontSize:28}}>{sec.icon}</span>
+                                        <span style={{fontSize:20,fontWeight:800,marginLeft:10}}>§{sec.id} {sec.name}</span>
+                                    </div>
+                                    <div style={{padding:20}}>
+                                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                                            <span style={{fontWeight:600,color:"#64748B"}}>{s.c}/{s.a} correct</span>
+                                            <span style={{fontWeight:800,fontSize:24,color:pct>=90?"#22C55E":pct>=70?"#EAB308":pct>=50?"#F97316":"#EF4444"}}>{pct}%</span>
+                                        </div>
+                                        <ProgressBar pct={pct}/>
+                                        <button onClick={()=>startPractice(sec.id)} style={{width:"100%",marginTop:16,padding:12,borderRadius:10,border:"none",background:sec.grad,color:"white",fontWeight:700,fontSize:15,cursor:"pointer"}}>
+                                            Oefen §{sec.id}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    ReactDOM.render(<App/>, document.getElementById("root"));
+    </script>
+</body>
+</html>
